@@ -1,0 +1,353 @@
+进程管理
+
+关键命令：ps、pstree
+
+计划任务配置文件
+/etc/crontab 
+/etc/cron.d/ 
+/etc/cron.{allow,deny}   前者优先级别高
+
+脚本
+/etc/cron.hourly/ 
+/etc/cron.daily/ 
+/etc/cron.weekly/
+/etc/cron.monthly/
+
+crontab存放路径
+/var/spool/cron/用户名
+
+
+实时优先级
+                                                  nice优先级，调整后性能并不会有很明显的变化，因为在6以后把nice的系统优先级调到了99
+TOP优先级
+在终端中直接输入
+                                                  chrt        check/change   real  time    
+                                                  nice   -n   -20 ping  127.1   把ping  127.0.0.1的 优先级设置为-20
+                                                  renice  -n  -20  4070   把进程4070的nice优先级调整为-20
+查看/改变优先级的调换顺序
+
+
+
+
+计算机上的计算时间是有三个时间的，所以我们如果要优化系统性能的话应该从尽量少调用用户空间使用时间上来考虑，比如说下文中说到的IO磁盘读写！
+real  time  实际使用时间
+system  time   内核使用时间
+user time    用户空间使用时间
+而实际上   real  time=system time+user time
+
+
+
+
+
+windows 协助式多任务，死机就重启
+Linux  抢占式多任务
+    daemon  守护进程，就是我们在Windows中使用的services服务
+     后台守护进程    与终端无关
+     前台进程  我们平时在终端敲命令的进程，在使用的时候只能用那一个，不能再敲命令的时候再同时执行其他的进程
+            
+
+
+
+进程五类状态
+R     running
+       ready
+       sleeping     
+S  可打断
+D  不可打断
+Z    zombie       解决方式：一般杀死其父进程就行，但是有些情况杀死父进程僵尸进程也会存在
+T    stop
+--------------------------------------------
+s   session会话
++   前台
+l     多线程
+L    内存分页并带锁
+N    低优先级
+<    高优先级
+
+
+CPU密集型，非交互     其实就是很耗CPU的进程，比如说编译就很耗CPU
+IO密集型，交互            实际上就是很消耗磁盘读写的进程，比如说在下载文件的时候
+相关命令 ：pstree  ps
+
+pstree            ---------------------》      树状显示进程
+中在花括号内的是    线程
+-p 显示更详细的进程信息
+我们需要查找某个进程的IP，直接在进程树中找
+
+
+ps                  ---------------------》          显示进程信息
+Linux中进程的信息保存在
+/proc/PID/fd中    --------------------------》》红色闪烁的是没了的进程，0，1，2表示标准输入，标准输出，标准错误
+其中PID是指进程的pid
+
+详细用法：
+man ps
+
+                             三种风格
+
+BSD                       UNIX                          GNU
+ps                           ps -                           ps --
+
+
+
+ps 
+
+a    所有终端
+x    和终端无关的
+u    使用者
+f     显示进程树
+--sort=%cpu   前面如果加-（减号）是倒序方式显示
+o    属性---》选择pid、cmd、%cpu、%mem等，在L中可以查看
+L    显示支持的属性列表    
+
+-C   这个使用的频率还是挺多的，但是在脚本中如果没有只当sheban机制的话，这个命令是无法识别出来的这一点是特列，需要特殊对待
+-u   effective user  有效的使用者，比如某个文件是root创建的，但是root组用户也能查看并使用，使用这个选线就会显示出来
+-U    真正的用户，和上面的区别是只会显示拥有者
+-g    类似于-u
+-G    类似于-U
+
+-F    显示比f更丰富，其中有项和CPU相关的信息，有扩展，taskset这个命令会绑定CPU
+taskset -p  PID  查看某进程的运行在哪个cpu上
+taskset -cp  0 PID       把PID进程绑定在0 CPU上     这里的CPU分0，1实际上0或1的代号
+
+优先级
+nice
+pri      可以man pri  查看优先级别的文档，里面是说pri越大优先级越低,但是实际情况que
+rtprio   显示实时优先级，若是优先级低于99的话只会显示  -（横杆），没有优先级 ，大部分进程都没有运行在实时优先级上
+
+
+
+ps的BSD风格中中部分参数
+VSZ   vitual  size    虚拟内存
+RSS   resident size       常驻内存
+TIME  消耗的CPU时间片，越长代表越消耗CPU    ping 127.0.0.1 -f  -s 65507  dd if=/dev/zero of=/dev/null
+psr  运行在哪个CPU上
+
+
+ps常用的选项
+aux
+-ef
+-eFH
+-eo pid,tid,class,rtprio,ni,pri,psr,pcpu,stat,comm
+axo stat,euid,ruid,tty,tpgid,sess,pgrp,ppid,pid,pcpu,comm
+
+
+实时监控各种资源使用情况，每秒扫描一次
+watch -n 1 'ps -eo pid,ppid,cmd,%mem,%cpu --sort=-%mem | head'
+
+
+
+pgrep 
+-u  有效用户
+-U  拥有者
+-t  terminal终端
+-l  进程名
+-a  显示完整格式
+
+pidof  command
+
+[root@d /]# which pidof
+/usr/sbin/pidof
+[root@d /]# ll /usr/sbin/pidof
+lrwxrwxrwx. 1 root root 18 Oct  8 17:03 /usr/sbin/pidof -> /usr/sbin/killall5
+[root@d /]# pidof vim
+6063
+[root@d /]# killall5 vim
+killall5: only one argument, a signal number, allowed
+
+可以查看到我们使用软连接文件的pidof命令和使用源文件的命令效果是不同的，这个思想其实我们就可以用到脚本中，实现思路如下：
+
+先判断文件是否为软链接，
+如果为软链接，则实现软链接中的命令
+如果不是，或者说是其他类型的文件执行相应的命令
+那么同一个脚本中就可以根据相应的情形来进行不同的操作了！
+
+
+
+
+uptime
+
+top
+在%Cpu那一列中出现了st，意思是stolen被盗取的时间片，就比如说我们在Windows上使用虚拟机的这种情况，Windows的CPU使用率有一部分是无法统计的，因为它无法知道我们在虚拟机的所有电脑中每个电脑使用了多少CPU，因为这是VM本身统计的CPU信息，而Windows是无法直接统计查看的
+h  帮助
+
+ifstat：网卡
+top -H -p  PID  查看PID进程的线程状况
+free -h -s 1 -c 10           1秒钟查看一次内存信息，10次后退出
+vmstat 2 5  每2秒显示一次，显示5次 ，虚拟内存信息
+iostat   2  5     每2秒显示一次，显示5次 ，统计CPU和设备IO信息
+
+
+pmap命令：进程对应的内存映射
+pmap [options] pid [...] -x: 显示详细格式的信息 
+示例：pmap 1 
+另外一种实现 cat /proc/PID/maps
+
+-----------------------------《《《内存泄漏》》》--------------------------------------------
+和开发有一定的联系，如果说开发写的程序很烂，那么在程序运行时候，相应的程序随着时间的运行
+消耗的内存会随着时间增加最后把内存给占满
+  
+
+服务端： glances  -s  -B  192.168.34.2      客户端：glances  -c   192.168.34.2     按下h是help帮助
+dstat：
+iostat：
+iotop  查看进程消耗最大IO的命令
+
+军刀级工具：
+lsof
+-n<目录>：列出使用NFS的文件
+-i<条件>：列出符合条件的进程(4、6、协议、:端口、 @ip )
+例如：
+      lsof   -i@127.1   查看网络连接的情况
+      lsof   -i    :80    指定80端口的详细情况
+
+查看端口连接情况 
+lsof -i :80 -n 
+通过参数-i:端口可以查看端口的占用情况，-i参数还有查看协议，ip的连接情况等
+
+查看指定进程打开的网络连接 
+lsof -i –n -a -p 9527 
+-i查看网络连接情况，-a查看存在的进程，-p指定进程
+
+查看指定状态的网络连接 
+lsof -n -P -i TCP -s TCP:ESTABLISHED
+-n:no host names, -P:no port names,-i TCP指定协议，-s指定协议状态通过多个参数可以 清晰的查看网络连接情况、协议连接情况等
+
+
+
+恢复其他人正在使用的被误删除的删除文件《注意：是正在被人使用的文件才能恢复，如果不是正在被人使用则无法被修复》
+lsof |grep /var/log/messages 
+rm -f /var/log/messages 
+lsof |grep /var/log/messages 
+cat /proc/653/fd/6 
+cat /proc/653/fd/6 > /var/log/messages
+
+
+
+kill
+-0     kill -0   `pidof 进程的命令` | rev | cut  -d' '  -f1 | rev  || service “进程”  restart  如果进程正常就不会重启服务，否则就重启服务  
+[  "$?" -eq  0 ]  && echo  “进程正常” ||  echo “进程处于非正常状态”      从前面的命令中我们可以知道，这个选项是用于判断进程是否是正常的！
+-1    重读配置文件，相当于suorce 配置文件的效果
+-2    中止进程，相当于Ctrl+C的效果
+-3    退出程序，相当于quit
+-9    强行杀死
+-15  杀死
+-18
+
+pkill -9  -u  lei     强行踢出lei用户
+
+前端执行命令之后想 Ctrl+Z 挂起命令，挂起后jobs查看到命令还在
+1.先执行  ping 127.1 &
+2.按下Ctrl+C ，发现无法停止，是因为在命令的后面加上了  &   这个后台执行命令
+3.jobs查看发现其进程编号为【1】
+4.fg 1把命令调到前端
+5.次数再按下Ctrl+C就能取消了
+
+如果刚刚的第四步不用fg，而用bg就表示在后端继续运行，在后端运行的程序不会影响前端的输出，换种说法就是，在后端程序运行时，我们输入df或是任何在平时都能执行的命令都能显示输出
+
+
+
+nohups ping 127.1 &> /dev/null     这个ping命令会一直在后台中运行，如果没有  &>  这个命令的话，默认会把执行结果写进nohup.out这个文件中，除非结束ping这个进程
+与screen这个命令的效果一样，即使当前终端莫名其妙的被终止了，命令还是继续在后台执行
+
+
+at
+-t time    时间格式 [[CC]YY]MMDDhhmm[.ss]
+-l             list列表
+-d           delete删除
+-f  /path/file     指定的文件中读取任务
+-m         强制给用户发送邮件，即使任务没有标准输出
+
+
+
+CC 指定年份的前两位数字
+YY 指定年份的后两位数字
+MM 指定一年的哪一月（从 01 到 12）
+DD 指定一月的哪一天（从 01 到 31）
+hh 指定一天中的哪一小时（从 00 到 23）
+mm 指定一小时的哪一分钟（从 00 到 59）
+ss 指定一分钟的哪一秒（从 00 到 59）
+
+例子：
+因为at是交互式命令，所以我们可以这么用这个命令:
+echo 'echo -e "\a"' |at -t 201811040958.30
+echo 'echo -e "sleep 43.5\n\a"' |at -t 201811040958.30
+echo 'echo -e "usleep 10000\n\a"' |at -t 20181104
+或者
+at -t 201811040958.30 <<  EOF
+>   echo -e "\a"
+>   EOF
+
+sleep  1  =usleep 1000000  
+1秒=1000000微秒
+利用这一点我们可以准确的在某一秒，执行我们的at命令
+
+把前面又标准输入的结果传递给at
+
+TIME：定义出什么时候进行 at 这项任务的时间 
+HH:MM [YYYY-mm-dd] 
+noon, midnight, teatime（4pm） 
+tomorrow 
+now+#{minutes,hours,days, OR weeks}
+
+
+at命令的安全问题：
+如何达到at命令的使用可控，这是一个问题,不过我哦们可以使用
+/etc/at.allow 与 /etc/at.deny
+来对at的使用进行限制，其工作原理如下：
+先寻找/etc/at.allow，写入这个文件的使用者能用，没有在此文件中的则不能使用（即使没有写在/etc/at.deny中）
+如果没有/etc/at.allow不存在，寻找/etc/at.deny文件，写在此文件中的使用者不能使用，而没有在此文件中的使用者，就可以使用
+如果两个文件读不存在，那么只有root可以使用at命令。
+一般情况下。allow的管理较为严格，deny则较为松散
+一般情况下，按章完成后系统通常会保留一个空的/etc/at/deny文件，仪式是允许所有人使用，如果不希望某人使用的话，直接把使用者的账户跳入/etc/at.deny里面即可。注意：一个账号一行
+
+
+
+
+
+
+
+
+
+
+crontab
+
+直接查看
+/etc/crontab
+可以知道其使用方式           分时日月周年秒
+
+之前在虚拟机上遇到过一个问题，时间上和写的计划任务的时间是一样的，但就是不会执行计划任务，后来发现问题，原因是时区不对
+导致任务无法按时执行
+解决方式如下：
+cp /usr/share/zoneinfo/Asia/Chongqing /etc/localtime
+时区同步的情况下，写的计划任务才会准点触发
+
+-u user 仅root可运行，指定用户管理cron任务
+-e 编辑
+-l 列表
+-r 清空
+-u 指定用户
+-i  询问你是否删除计划任务
+
+
+/etc/cron.{allow,deny}   前者优先级别高
+---------------------------默认是没有allow的，root自行创建，作用和上方的at设置一样
+
+默认crontab调用的是vi编辑器，但是我们可以自行定义环境变量改变crontab调用的编辑器
+export  EDITOR=vim   
+当然，上面这种方式是临时生效的，要想永久生效还得写入配置文件中
+vim /etc/profile.d/crontab.sh
+
+
+用户写好的crontab文件放在
+/var/spool/cron/用户名
+错误日志
+/var/log/cron
+
+
+计划任务中又两点需要特殊对待：
+1.写了具体的“日和月”之后不要写“周”，否则系统会随机选择一个执行，如果确实想要“周”和“日月”同时满足的话可以写一个
+脚本对“周”进行过滤
+2.每7分钟执行一次的任务，因为分钟最大数为59分钟，无法整除7，到第9个7分钟是无法直接定义出来的，所以需要配合sleep 420实现
+
+

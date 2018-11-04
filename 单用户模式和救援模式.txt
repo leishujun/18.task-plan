@@ -1,0 +1,48 @@
+centos  6、7 的单用户模式和救援模式
+
+centos  7 单用户模式
+e                    编辑内核启动
+在 “linux16” 最后 加上  “ init=/bin/sh” （引号是为了引起注意，不用输入）
+Ctrl+X             重新刷新
+。。。     三个省略号代表自己要在这种模式下想要进行的操作
+exec  /sbin/init       启动用户界面
+
+
+
+
+centos  6或6以下版本  单用户模式
+a
+空格 1 ，再按下Enter键确认
+。。。      三个省略号代表自己要在这种模式下想要进行的操作
+exec /sbin/init       启动用户界面
+
+
+
+
+
+7 救援模式
+出现进度条的时候，按一次“Esc”
+选择第三项   “CD-ROM Drive”
+选择第三项  “Troubleshooting”
+选择第二项     “Rescue a CentOS system”
+按下“Enter”键
+输入 “1”  ，然后确认（注意，不要按右边小键盘上的1，要按字母键盘上方的1）
+再按一次“Enter”
+。。。     三个省略号代表自己要在这种模式下想要进行的操作
+exec  /sbin/init  或者   exit都可以重新启动系统
+
+
+6 救援模式
+出现进度条的时候，按     一次“Esc”
+选择第三项      “CD-ROM Drive”
+选择第三项     “Rescue a CentOS system
+1）按下“Enter”
+2）再按下“Enter”
+3）按下 “Tab”，再按“ Enter”
+一路  “Enter”
+ 。。。     三个省略号代表自己要在这种模式下想要进行的操作
+“reboot”或 “输入exit ，再选择reboot选项”
+
+
+
+
